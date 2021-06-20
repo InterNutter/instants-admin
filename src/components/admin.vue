@@ -7,7 +7,9 @@
     <el-main>
       <v-date-picker v-model='selectedDate'
       :attributes='attributes'
-      />
+      /><br/>
+      <el-button @click="selectedNum--; load()">&lt; Prev</el-button>
+      <el-button @click="selectedNum++; load()">Next &gt;</el-button>
     </el-main>
     <el-main v-if="selectedDate">
       <h3>Number {{ story.number }}</h3>
@@ -73,7 +75,7 @@
 <script>
 import VueDocPreview from 'vue-doc-preview'
 
-const apiURL = 'http://localhost:3000';
+const apiURL = 'http://192.168.5.127:3000';
 const startDate = new Date(2013,0,1, 0, 0, 0, 0);
 
 
@@ -109,6 +111,7 @@ export default {
   data() {
     return {
       selectedDate: null,
+      selectedNum: null,
       story: {
         year: thisYear,
         number: 0,
@@ -118,7 +121,7 @@ export default {
         content: ''
       },
       tags: '',
-      attributes: [],
+      dates: [],
     }
   },
   computed: {
@@ -131,13 +134,58 @@ export default {
         year++;
       }
       return list;
+    },
+    attributes() {
+      const allDates = this.dates;
+
+      const dates = [];
+      let prev = null;
+      let range = false;
+      let cur = null;
+
+      let n = 0;
+      for (const date of allDates) {
+        /* eslint-disable no-debugger */
+        debugger
+        if (n < 10) {
+          console.log("prev", prev, "delta", date - prev);
+          n++
+        }
+        if (prev && date - prev <= 86400000) {
+          if (!range) {
+            cur = { start: cur, end: date };
+            range = true;
+          } else {
+            cur.end = date;
+          }
+        } else {
+          if (cur) dates.push(cur);
+          cur = date;
+          range = false;
+        }
+        prev = date;
+      }
+      if (cur) dates.push(cur);
+
+      console.log("using dates", dates)
+      return [{
+        key: 'stories',
+        highlight: {
+          start: { fillMode: 'solid', color: 'green' },
+          base: { fillMode: 'solid', color: 'green' },
+          end: { fillMode: 'solid', color: 'green' },
+        },
+        dates,
+      }];
     }
   },
   methods: {
     load() {
       const that = this;
-      const number = numberForDate(this.selectedDate);
-      fetch(`${apiURL}/story/${number}`).then(async (res)=> {
+      const number = this.selectedNum;
+      fetch(`${apiURL}/story/${number}`, {
+        credentials: "include"
+      }).then(async (res)=> {
         try {
           that.story = await res.json();
         } catch (e) {
@@ -151,7 +199,9 @@ export default {
           }
         }
       });
-      fetch(`${apiURL}/tags/${number}`).then(async (res)=> {
+      fetch(`${apiURL}/tags/${number}`, {
+        credentials: "include"
+      }).then(async (res)=> {
         that.tags = (await res.json() ).join(', ');
       });
     },
@@ -166,6 +216,7 @@ export default {
           'Content-Type': 'application/json; charset=utf-8'
         }),
         body: JSON.stringify(this.story),
+        credentials: "include"
       }).then(async ()=> {
         that.updateCalendar();
         that.saveTags();
@@ -192,6 +243,7 @@ export default {
           'Content-Type': 'application/json; charset=utf-8'
         }),
         body: JSON.stringify(this.tags.split(/,\s+/g)),
+        credentials: "include",
       }).then(async ()=> {
         that.$notify({
           title: 'Success',
@@ -209,29 +261,47 @@ export default {
 
     updateCalendar() {
       const that = this;
-      fetch(`${apiURL}/story`).then(async (res)=> {
-        const list = [];
+      fetch(`${apiURL}/story`, {
+        credentials: "include"
+      }).then(async (res) => {
         const numbers = await res.json();
         const dates = [];
         for (const number of numbers) {
           dates.push(dateForNumber(number));
         }
-        list.push({
-          key: 'stories',
-          highlight: 'green',
-          dates,
-        });
-        that.attributes = list;
+        that.dates = dates;
+      });
+    },
+
+    checkAdmin() {
+      const that = this;
+      fetch(`${apiURL}/account`, {
+        credentials: "include"
+      }).then(async (res) => {
+        try {
+          const account = await res.json();
+          if (!account || account.email !== 'admin@internutter.org') {
+            document.location = `${apiURL}/sign-in`;
+          }
+        } catch (e) {
+          that.$notify({
+            title: 'Failure',
+            message: 'Admin fail...',
+            type: 'error'
+          });
+        }
       });
     }
   },
   watch: {
     selectedDate() {
+      this.selectedNum =  numberForDate(this.selectedDate);
       this.load();
     }
   },
   mounted() {
     this.updateCalendar();
+    this.checkAdmin();
   }
 }
 </script>
