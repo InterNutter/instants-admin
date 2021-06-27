@@ -22,7 +22,7 @@
         <el-form-item label="Prompt">
           <el-row>
             <el-col :span="12">
-              <el-input type="textarea" v-model="story.prompt"></el-input>
+              <el-input type="textarea" autosize v-model="story.prompt"></el-input>
             </el-col>
             <el-col :span="12">
               <VueDocPreview
@@ -75,10 +75,6 @@
 <script>
 import VueDocPreview from 'vue-doc-preview'
 
-let config = {
-  apiURL: `${document.location.protocol}//${document.location.hostname}:3000`,
-};
-   
 const startDate = new Date(2013,0,1, 0, 0, 0, 0);
 
 
@@ -113,6 +109,9 @@ export default {
   },
   data() {
     return {
+      config: {
+        apiURL: `${document.location.protocol}//${document.location.hostname}:3000`,
+      },
       selectedDate: null,
       selectedNum: null,
       story: {
@@ -183,10 +182,15 @@ export default {
     }
   },
   methods: {
+    init() {
+      if (!this.config.loaded) return;
+      this.updateCalendar();
+      this.checkAdmin();
+    },
     load() {
       const that = this;
       const number = this.selectedNum;
-      fetch(`${config.apiURL}/story/${number}`, {
+      fetch(`${this.config.apiURL}/story/${number}`, {
         credentials: "include"
       }).then(async (res)=> {
         try {
@@ -202,7 +206,7 @@ export default {
           }
         }
       });
-      fetch(`${config.apiURL}/tags/${number}`, {
+      fetch(`${this.config.apiURL}/tags/${number}`, {
         credentials: "include"
       }).then(async (res)=> {
         that.tags = (await res.json() ).join(', ');
@@ -213,7 +217,7 @@ export default {
       const date = dateForNumber(this.story.number);
       this.story.year = date.getFullYear();
       this.story.day = dayOfYear(date);
-      fetch(`${config.apiURL}/story`, {
+      fetch(`${this.config.apiURL}/story`, {
         method: 'POST',
         headers:  new Headers({
           'Content-Type': 'application/json; charset=utf-8'
@@ -240,7 +244,7 @@ export default {
 
     saveTags() {
       const that = this;
-      fetch(`${config.apiURL}/tags/${this.story.number}`, {
+      fetch(`${this.config.apiURL}/tags/${this.story.number}`, {
         method: 'POST',
         headers:  new Headers({
           'Content-Type': 'application/json; charset=utf-8'
@@ -264,7 +268,7 @@ export default {
 
     updateCalendar() {
       const that = this;
-      fetch(`${config.apiURL}/story`, {
+      fetch(`${this.config.apiURL}/story`, {
         credentials: "include"
       }).then(async (res) => {
         const numbers = await res.json();
@@ -278,13 +282,13 @@ export default {
 
     checkAdmin() {
       const that = this;
-      fetch(`${config.apiURL}/account`, {
+      fetch(`${this.config.apiURL}/account`, {
         credentials: "include"
       }).then(async (res) => {
         try {
           const account = await res.json();
           if (!account || account.email !== 'admin@internutter.org') {
-            document.location = `${config.apiURL}/sign-in`;
+            document.location = `${this.config.apiURL}/sign-in`;
           }
         } catch (e) {
           that.$notify({
@@ -305,15 +309,18 @@ export default {
   created() {
     fetch('config.json').then(async(res) => {
       try {
-        config = await res.json();
+        this.config = await res.json();
+        this.config.success = true;
       } catch (e) {
-	return;
+	this.config.success = false;
+      } finally {
+        this.config.loaded = true;
       }
+      this.init();
     });
   },
   mounted() {
-    this.updateCalendar();
-    this.checkAdmin();
-  }
+    this.init();
+  },
 }
 </script>
