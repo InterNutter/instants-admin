@@ -75,7 +75,10 @@
 <script>
 import VueDocPreview from 'vue-doc-preview'
 
-const apiURL = 'http://192.168.5.127:3000';
+let config = {
+  apiURL: `${document.location.protocol}//${document.location.hostname}:3000`,
+};
+   
 const startDate = new Date(2013,0,1, 0, 0, 0, 0);
 
 
@@ -183,7 +186,7 @@ export default {
     load() {
       const that = this;
       const number = this.selectedNum;
-      fetch(`${apiURL}/story/${number}`, {
+      fetch(`${config.apiURL}/story/${number}`, {
         credentials: "include"
       }).then(async (res)=> {
         try {
@@ -199,7 +202,7 @@ export default {
           }
         }
       });
-      fetch(`${apiURL}/tags/${number}`, {
+      fetch(`${config.apiURL}/tags/${number}`, {
         credentials: "include"
       }).then(async (res)=> {
         that.tags = (await res.json() ).join(', ');
@@ -210,7 +213,7 @@ export default {
       const date = dateForNumber(this.story.number);
       this.story.year = date.getFullYear();
       this.story.day = dayOfYear(date);
-      fetch(`${apiURL}/story`, {
+      fetch(`${config.apiURL}/story`, {
         method: 'POST',
         headers:  new Headers({
           'Content-Type': 'application/json; charset=utf-8'
@@ -237,7 +240,7 @@ export default {
 
     saveTags() {
       const that = this;
-      fetch(`${apiURL}/tags/${this.story.number}`, {
+      fetch(`${config.apiURL}/tags/${this.story.number}`, {
         method: 'POST',
         headers:  new Headers({
           'Content-Type': 'application/json; charset=utf-8'
@@ -261,7 +264,7 @@ export default {
 
     updateCalendar() {
       const that = this;
-      fetch(`${apiURL}/story`, {
+      fetch(`${config.apiURL}/story`, {
         credentials: "include"
       }).then(async (res) => {
         const numbers = await res.json();
@@ -275,13 +278,13 @@ export default {
 
     checkAdmin() {
       const that = this;
-      fetch(`${apiURL}/account`, {
+      fetch(`${config.apiURL}/account`, {
         credentials: "include"
       }).then(async (res) => {
         try {
           const account = await res.json();
           if (!account || account.email !== 'admin@internutter.org') {
-            document.location = `${apiURL}/sign-in`;
+            document.location = `${config.apiURL}/sign-in`;
           }
         } catch (e) {
           that.$notify({
@@ -298,6 +301,14 @@ export default {
       this.selectedNum =  numberForDate(this.selectedDate);
       this.load();
     }
+  },
+  created() {
+    fetch('config.json').then(async(res) => {
+      try {
+        config = await res.json();
+      } catch (e) {
+      }
+    });
   },
   mounted() {
     this.updateCalendar();
